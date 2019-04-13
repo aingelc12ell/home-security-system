@@ -1,2 +1,2 @@
-# home-security-system
-A Repository of source codes for a Home Security System prototype
+# Home Security System
+A modularized home security system allowing the flexibility of adding/changing/removing home security features
