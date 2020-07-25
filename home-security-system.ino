@@ -85,13 +85,13 @@ void initBuzzer(){
 
 ////////////////////////////////////////// alarm status
 void setAlarm(){
-  Serial.println("Alarm|Alarm|Alarm|Alarm|Alarm|Alarm");
+	Serial.println("Alarm|Alarm|Alarm|Alarm|Alarm|Alarm");
 	soundBuzzer();
 }
 void setStatus(int x){
 	int i = x % 16;
-  Serial.print("at status: ");
-  Serial.println(i);
+	Serial.print("at status: ");
+	Serial.println(i);
 	setLEDStatus(i);
 	if(i == 15){
 		setAlarm();
@@ -116,14 +116,23 @@ void statusReceiver(int bytes){
   }
 	delay(100);
 }
-//////////MODULES//////////////////////////////////////////////
+/**
+MODULES: 
+	attached to the Arduino Mega
+	defined and configured on /modules/
+	requires an init<Module>() and check<Module>() 
+		to be included in the initModules() and checkModules() below
+*/
+#include "modules/flame.h"
 
 ////////////////////////////////////////////////////////
 void initModules(){
   // initialize modules here
+  initFlame();
 }
 void checkModules(){
   // series of checks
+  checkFlame();
 }
 ////////////////////////////////////////////////////////
 void setup() {
@@ -151,11 +160,12 @@ void loop() {
       setStatus(systemStatus);
       systemStatus++;
     }*/
-    Serial.print("systemStatus: ");
-    Serial.println(systemStatus);
     
     // main checker
     checkModules();
+	
+    Serial.print("systemStatus: ");
+    Serial.println(systemStatus);
     
     // counter
     signalInterval--;
