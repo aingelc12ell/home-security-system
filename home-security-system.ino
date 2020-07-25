@@ -1,106 +1,165 @@
+#include <Wire.h>
 
-bool setAlarm = LOW; // global check for alarm
-bool systemUp = HIGH;
+int systemStatus = 0; // status to be reflected in the sequence
+int i2cID = 9;
+int buttonPin = 7;
+int signalInterval = 10;
+int signalIntervalDefault = 10;
 
-//------- PIN REGISTRY
-// 3 - vibratePin   : IN  : 
-// 4 - laserPin    : OUT : laser light
-// 5 - uhEchoPin    : IN  : Ultrasonic echo pin
-// 6 - uhTrigPin    : OUT : Ultrasonic trigger pin
-// 7 - dht11Pin     : IN  : Digital Humidity and Temperature
-// 9 - speakerPin   : OUT : Speaker alarm pin
-// 11 - resetButton : IN  : set Alarm to OFF state
-// 12 - greenLED    : OUT : green LED light
-// 13 - redLED      : OUT : red LED light
-
-// 25
-
-// 45 - openReedPin : IN  : Magnetic switch
-// 46 - codePins
-// 47 - codePins
-// 48 - codePins
-// 49 - codePins
-// 50 - codePins
-// 51 - codePins
-// 52 - codePins
-// 53 - codePins
-
-// A0 - ambientLightPin : ambient light sensor/ laser receiver
-// A1 - tempPin     : temperature sensor
-// A2 - flamePin    : Flam sensor
-
-//------ NUMBER CODE REGISTRY
-// 0
-// 1 - switch
-// 2 - dht Temp
-// 3 - flame
-// 4 - laser trip
-// 6 - vibrate
-// 7 - reed/magnet
-// 8 - temperature
-// 9 - untrasonic 
-
-
-//------- MODULES : setA
-#include "modules/codeLight.h"
-#include "modules/resetSwitch.h"
-#include "modules/lights.h"
-#include "modules/speakerAlarm.h"
-#include "modules/ultrasonic.h"
-//#include "modules/ambientlight.h"
-#include "modules/vibration.h"
-#include "modules/openReedSwitch.h"
-#include "modules/temperature.h"
-#include "modules/flame.h"
-#include "modules/laser.h"
-//DHT
-#include "libraries/dht.h"
-#include "libraries/dht.cpp"
-#include "modules/DHT11.h"
-
-
-
-//------- EXECUTE ALARM : conditions are set in each function
-void doAlarm(){
-    doLights();
-    doSpeaker();
-    //send SMS
-}
-
-//------ WHAT TO CHECK : setB
-void checkForAlarm(){
-  checkUltraSonic();
-  checkTempSensor();
-  //checkAmbientLight();
-  checkReedSwitch();
-  checkVibration();
-  checkFlame();
-  checkDHT11();
-  checkLaser();
-  checkResetButton();
-}
-
-//------ SET UP ROUTINES
-void setup() {
-  Serial.begin(9600);
-  initCodeLights();
-  initResetButton();
-  initLights();
-  initSpeaker();
-  initVibration();
-  initUltraSonic();
-  initTempSensor();
-  initReedSwitch();
-  initFlame();
-  initLaser();
-  initDHT11();
-}
-
-//------ KEEP CHECKING UNTIL ALARM
-void loop() {
-  checkForAlarm();
-  if(systemUp == HIGH){
-    doAlarm();
-    doCodeLight();
+//////////////////////////////////////////
+// lights
+int codeFirstPin = 26;
+int codeLastPin = 33;
+int codeArray[16][8] = {
+  {1,1,1,1,1,1,0}, //0
+  {0,1,1,0,0,0,0}, //1
+  {1,1,0,1,1,0,1}, //2
+  {1,1,1,1,0,0,1}, //3
+  {0,1,1,0,0,1,1}, //4
+  {1,0,1,1,0,1,1}, //5
+  {1,0,1,1,1,1,1}, //6
+  {1,1,1,0,0,0,0}, //7
+  {1,1,1,1,1,1,1}, //8
+  {1,1,1,0,0,1,1}, //9
+  {1,1,1,0,1,1,1}, //A
+  {0,0,1,1,1,1,1}, //B
+  {1,0,0,1,1,1,0}, //C
+  {0,1,1,1,1,0,1}, //D
+  {1,0,0,1,1,1,1}, //E
+  {1,0,0,0,1,1,1}, //F
+};
+int gyrbPin[3] = {10,9,11}; //pin series for green,yellow,red
+int gyrLED[16][3] = {
+  {0,0,0}, //0
+  {1,0,0}, //1
+  {1,0,0}, //2
+  {1,1,0}, //3
+  {1,1,0}, //4
+  {1,1,0}, //5
+  {0,1,0}, //6
+  {0,1,0}, //7
+  {0,1,0}, //8
+  {0,1,0}, //9
+  {0,1,1}, //10
+  {0,1,1}, //a
+  {0,1,1}, //b
+  {0,1,1}, //c
+  {0,1,1}, //e
+  {0,0,1}, //f
+};
+void initCodeLights(){
+  for(int pin = codeFirstPin; pin <= codeLastPin ; pin++){
+    pinMode(pin, OUTPUT);
   }
+  for(int pin = 0; pin < 3; pin++){
+    pinMode(gyrbPin[pin],OUTPUT);
+  }
+}
+void setLEDStatus(int x) {
+  for(int pin = codeFirstPin; pin <= codeLastPin ; pin++){
+    digitalWrite(pin, 1 - codeArray[x][pin - codeFirstPin]);
+  }
+  for(int pin = 0; pin < 3; pin++){
+    digitalWrite(gyrbPin[pin],gyrLED[x][pin]);
+  }
+}
+
+//////////////////////////////////////////
+// buzzer
+float sinVal;
+int toneVal;
+int buzzer = 12;
+void soundBuzzer(){
+	for(int x=0; x<180; x++){
+        sinVal = (sin(x*(3.1412/180)));
+        toneVal = 2000+(int(sinVal*1000));
+        tone(buzzer, toneVal);
+        delay(20); 
+    }
+    delay(1000);
+    noTone(buzzer);
+}
+void initBuzzer(){
+	pinMode(buzzer,OUTPUT);
+}
+
+////////////////////////////////////////// alarm status
+void setAlarm(){
+  Serial.println("Alarm|Alarm|Alarm|Alarm|Alarm|Alarm");
+	soundBuzzer();
+}
+void setStatus(int x){
+	int i = x % 16;
+  Serial.print("at status: ");
+  Serial.println(i);
+	setLEDStatus(i);
+	if(i == 15){
+		setAlarm();
+	}
+}
+
+void initI2CSlave(){
+  Wire.begin(i2cID); 
+  Wire.onReceive(statusReceiver);
+}
+void statusReceiver(int bytes){
+  if(systemStatus < 15){
+  	int x = Wire.read();    // read one character from the I2C
+  	Serial.print("reading wire : ");
+  	Serial.println(x);
+  	systemStatus = x;
+  	setStatus(x);
+  }
+  else{
+    Serial.println("system is on alarm");
+    setAlarm();
+  }
+	delay(100);
+}
+//////////MODULES//////////////////////////////////////////////
+
+////////////////////////////////////////////////////////
+void initModules(){
+  // initialize modules here
+}
+void checkModules(){
+  // series of checks
+}
+////////////////////////////////////////////////////////
+void setup() {
+  Serial.begin(9600);  
+  initCodeLights();
+  initBuzzer();
+  initI2CSlave();
+  initModules();
+}
+
+void loop() {
+    delay(1000);
+    if(systemStatus == 15 && digitalRead(buttonPin) == HIGH){
+        // can only reset if had already been running in signalInterval iteration
+        Serial.println("button is High, resetting..");
+        systemStatus = 0;
+        setStatus(systemStatus);
+        statusReceiver(0);
+        signalInterval = signalIntervalDefault;
+    }
+    
+    // SYSTEM STATUS TEST
+    /*systemStatus = systemStatus % 16;
+    if(systemStatus < 15){
+      setStatus(systemStatus);
+      systemStatus++;
+    }*/
+    Serial.print("systemStatus: ");
+    Serial.println(systemStatus);
+    
+    // main checker
+    checkModules();
+    
+    // counter
+    signalInterval--;
+    signalInterval = signalInterval < 0 ? 0 : signalInterval;
+    Serial.print("Interval: ");
+    Serial.println(signalInterval);
 }
