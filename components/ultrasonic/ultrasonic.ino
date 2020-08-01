@@ -1,7 +1,7 @@
 /**
 Singular Ultrasonic Sensor
 */
-// #include <Wire.h>
+#include <Wire.h>
 
 int ledPin = 10;
 int usEcho = 9;
@@ -26,7 +26,7 @@ void setup(){
 	pinMode(ledPin,OUTPUT);
 	pinMode(usEcho,INPUT);
 	pinMode(usTrigger,OUTPUT);
-	// Wire.begin();
+	Wire.begin();
 }
 
 void relayStatus(int x){
@@ -35,14 +35,16 @@ void relayStatus(int x){
 	delay(200);
  if(x==15){
   blinkLED();
+  Serial.println("relaying signal......");
+	Wire.beginTransmission(slaveI2C);
+	Wire.write(15);
+	Wire.endTransmission();
+ delay(3000);
  }
-	/*Wire.beginTransmission(slaveI2C);
-	Wire.write(x);
-	Wire.endTransmission();*/
 }
 
 void loop(){
-	long duration, cm, inches;
+	long duration, cm;
 	digitalWrite(usTrigger,HIGH);
 	delayMicroseconds(1000);
 	digitalWrite(usTrigger,LOW);
@@ -50,7 +52,7 @@ void loop(){
 	duration = pulseIn(usEcho, HIGH);
 
 	cm = (duration/2) / 29.1;
-	inches = (duration/2) / 74; 
+	//inches = (duration/2) / 74; 
 	Serial.print("Distance: ");
 	Serial.print(cm);
 	Serial.println(" cm");
