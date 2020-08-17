@@ -28,8 +28,8 @@ void checkMiniReed()
     if(reedCounter <= 0){
       if(relaySent == 0){
         Serial.println(".........Sending ALARM");
-        Wire.beginTransmission(9);
-        Wire.write(15);
+        Wire.beginTransmission(9); // send to mega
+        Wire.write(13); // bound to lcd message
         Wire.endTransmission();
         relaySent = 1;
       }

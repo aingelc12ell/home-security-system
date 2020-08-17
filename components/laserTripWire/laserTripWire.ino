@@ -13,8 +13,8 @@ void initTripWire() {
   Wire.begin();
 }
 void relayTripWireAlarm(){
-  Wire.beginTransmission(9);
-  Wire.write(15);
+  Wire.beginTransmission(9); //send to mega
+  Wire.write(12); //bound with lcd message
   Wire.endTransmission();
   delay(500);
 }

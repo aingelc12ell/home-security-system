@@ -9,7 +9,7 @@ int usTrigger = 8;
 int cmThresholdRed = 10; // trigger when close to distance in centimeters
 int cmThresholdGreen = 2000;
 int setInterval = 5;
-int slaveI2C = 9;
+int slaveI2C = 9; // to mega
 int systemStatus = 0;
 
 void blinkLED(){
@@ -37,7 +37,7 @@ void relayStatus(int x){
   blinkLED();
   Serial.println("relaying signal......");
 	Wire.beginTransmission(slaveI2C);
-	Wire.write(15);
+	Wire.write(11); //bound to lcMessage
 	Wire.endTransmission();
  delay(3000);
  }

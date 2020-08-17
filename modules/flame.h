@@ -21,9 +21,9 @@ void checkFlame(){
 	//}
 	if(flameAVal < flameThreshold){
 		Serial.println("[[[[[[  FLAME ]]]]]");
-		systemStatus = 15;
+		systemStatus = 1; //bound code for relay
 	}
 	else{
-		systemStatus = systemStatus > 12 ? systemStatus : 0;
+		systemStatus = systemStatus > 0 ? systemStatus : 0;
 	}
 }

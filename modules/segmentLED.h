@@ -22,7 +22,7 @@ int codeArray[16][8] = {
 };
 int gyrbPin[3] = {10,9,11}; //pin series for green,yellow,red
 int gyrLED[16][3] = {
-  {0,0,0}, //0
+  {1,1,1}, //0
   {1,0,0}, //1
   {1,0,0}, //2
   {1,1,0}, //3
@@ -53,5 +53,11 @@ void setLEDStatus(int x) {
   }
   for(int pin = 0; pin < 3; pin++){
     digitalWrite(gyrbPin[pin],gyrLED[x][pin]);
+  }
+  if(x==0){
+	  delay(1000);
+	  for(int pin = 0; pin < 3; pin++){
+		digitalWrite(gyrbPin[pin],LOW);
+	  }
   }
 }

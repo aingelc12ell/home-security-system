@@ -1,6 +1,27 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <Wire.h>
+/*
+#include <LiquidCrystal_I2C.h>*/
+char *lcdMessage[] = {
+  "System Normal" //0
+  ,"Fire Alarm" //1
+  ,"A#2" //2
+  ,"A#3" //3
+  ,"A#4" //4
+  ,"A#5" //5
+  ,"A#6" //6
+  ,"A#7" //7
+  ,"Alarm # 8" //8
+  ,"Alarm # 9" //9
+  ,"Alarm # 10" //10
+  ,"Alarm: Ultrasonic" //11
+  ,"Alarm: Laser Tripwire" //12
+  ,"Alarm: Reed Switch" // 13
+  ,"Alarm # 14" // 14
+  ,"Alarm # 15" //15
+  ,"Alarm" //16
+};
 
 const byte ethernetI2C = 25;
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
@@ -12,9 +33,9 @@ unsigned long beginMicros, endMicros;
 unsigned long byteCount = 0;
 bool printWebData = true;  // set to false for better speed measurement
 int canSend = 0;
-char message[10];
+char *message;
 
-
+//LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 void sendWebRequest(){
   // give the Ethernet shield a second to initialize:
@@ -59,6 +80,7 @@ void initEthernet(){
   Serial.println("Initialize Ethernet with DHCP:");
   if (Ethernet.begin(mac) == 0) {
     Serial.println("Failed to configure Ethernet using DHCP");
+    //lcd.print("Eth config FAIL");
     // Check for Ethernet hardware present
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
       Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
@@ -68,31 +90,29 @@ void initEthernet(){
     }
     if (Ethernet.linkStatus() == LinkOFF) {
       Serial.println("Ethernet cable is not connected.");
+      //lcd.print("Eth X connect");
     }
     // try to congifure using IP address instead of DHCP:
     Ethernet.begin(mac, ip, myDns);
   } else {
     Serial.print("  DHCP assigned IP ");
     Serial.println(Ethernet.localIP());
+    //lcd.print(Ethernet.localIP());
   }
   if (client.connect(server, 80)) {
     Serial.println("Ready to receive and transmit");
+    //lcd.print("Eth READY");
+    //showLCD(0);
     canSend = 1;
   }
 }
-
 void sendEthernetSignal(int xx){
 	int x = Wire.read();
-      Serial.print("Signal Received : ");
-      Serial.println(x);
-	switch(x){
-		case 15: 
-			sprintf(message,"%s","alarm");
-			sendWebRequest();
-		break;
-		default:
-		break;
-	}
+    Serial.print("Signal Received : ");
+    Serial.println(x);
+	sprintf(message,"%s",lcdMessage[x]);
+	sendWebRequest();
+ //showLCD(x);
 }
 void initEthernetRelay(){
 	initEthernet();
@@ -101,9 +121,24 @@ void initEthernetRelay(){
 }
 
 /////////////////////////////////////
-
+/*
+void initLCD(){
+  lcd.begin();
+  lcd.backlight();
+  
+}
+void showLCD(int i){
+  lcd.clear();
+  lcd.print(i);
+  lcd.setCursor (0,1);
+  lcd.print(lcdMessage[i]);
+  Serial.print(lcdMessage[i]);
+}
+*/
+/////////////////////////////////////
 void setup(){
   Serial.begin(9600);
+  //initLCD();
   initEthernetRelay();
 }
 
