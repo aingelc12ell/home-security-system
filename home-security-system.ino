@@ -1,5 +1,8 @@
-#include <Wire.h>
+
 #include <LiquidCrystal_I2C.h>
+//#include <MQ135.h>
+#include <Wire.h>
+
 
 int systemStatus = 0; // status to be reflected in the sequence
 int i2cID = 9; //slave address
@@ -7,20 +10,20 @@ int buttonPin = 7;
 int signalInterval = 10;
 int signalIntervalDefault = 10;
 
-LiquidCrystal_I2C lcd(0x22, 16, 2);
-LiquidCrystal_I2C lcd2(0x26, 16, 2);
+//LiquidCrystal_I2C lcd(0x22, 16, 2);
+//LiquidCrystal_I2C lcd2(0x26, 16, 2);
 
 const char *lcdMessage[] = {
   "System Normal" //0
   ,"Fire Alarm" //1
-  ,"A#2" //2
-  ,"A#3" //3
-  ,"A#4" //4
-  ,"A#5" //5
-  ,"A#6" //6
-  ,"A#7" //7
+  ,"Air Quality Alarm" //2
+  ,"Reed Switched" //3
+  ,"Ultrasonic On" //4
+  ,"Hall Magnetized" //5
+  ,"Linear Hall" //6
+  ,"Sensor Touched" //7
   ,"Alarm # 8" //8
-  ,"Alarm # 9" //9
+  ,"Mercury Switched" //9
   ,"Alarm # 10" //10
   ,"Alarm: Ultrasonic" //11
   ,"Alarm: Laser Tripwire" //12
@@ -29,18 +32,29 @@ const char *lcdMessage[] = {
   ,"Alarm # 15" //15
   ,"Alarm" //16
 };
+
+void TCA9548A(uint8_t bus)
+{
+  Wire.beginTransmission(0x70);  // TCA9548A address is 0x70
+  Wire.write(1 << bus);          // send byte to select bus
+  Wire.endTransmission();
+}
 void initLCD(){
+	TCA9548A(0);
   lcd.begin();
   lcd.backlight();
+  TCA9548A(1);
   lcd2.begin();
   lcd2.backlight();
 }
 void showLCD(int i){
+	TCA9548A(0);
   lcd.clear();
   lcd.print(i);
   lcd.setCursor (0,1);
   lcd.print(lcdMessage[i]);
   
+  TCA9548A(1);
   lcd2.clear();
   lcd2.print(i);
   lcd2.setCursor (0,1);
@@ -51,20 +65,26 @@ void showLCD(int i){
 /*
 ACTUATOR MODULES
  */
-#include "modules/buzzer.h"
-#include "modules/segmentLED.h"
+ #include "modules/led.h"
+#include "modules/buzzer2.h"
+//#include "modules/segmentLED.h"
 // #include "modules/relaySwitch.h"
 //#include "modules/ethernetRelay.h"
+
+const int redLED = 10;
+const int greenLED = 11;
+const int buzzer = 9;
 ////////////////////////////////////////// alarm status
 void setAlarmOn(int x){
 	Serial.println("Alarm|Alarm|Alarm|Alarm|Alarm|Alarm");
-	soundBuzzerOn();
+	doBuzzerOn(buzzer);
   // relaySwitchOn();
   //sendEthernetSignal(x);
+  
 }
 void setAlarmOff(){
   Serial.println("Alarm Off");
-  soundBuzzerOff();
+  doBuzzerOff(buzzer);
   //relaySwitchOff();
   //sendEthernetSignal(0);
 }
@@ -90,9 +110,11 @@ void initI2CSlave(){
 }
 
 void initAlarm(){
-  initLCD();
-  initCodeLights();
-  initBuzzer();
+	initLED(redLED);
+	initLED(greenLED);
+  //initLCD();
+  //initCodeLights();
+  initBuzzer(buzzer);
   //initI2CSlave();
   //initRelaySwitch();
   //initEthernetRelay();
@@ -101,7 +123,7 @@ void setStatus(int x){
 	//int i = x % 16;
 	Serial.print("at status: ");
 	Serial.println(x);
-  showLCD(x);
+	showLCD(x);
 	setLEDStatus(x);
   if(x > 0){
     setAlarmOn(x);
@@ -116,16 +138,23 @@ SENSOR MODULES:
 	requires an init<Module>() and check<Module>() 
 		to be included in the initModules() and checkModules() below
 */
-#include "modules/flame.h"
-
+//#include "modules/flame.h"
+//#include "modules/MQ135.h"
+#include "modules/metaltouch.h"
 ////////////////////////////////////////////////////////
 void initModules(){
   // initialize modules here
-  initFlame();
+  //initFlame();
+  //initMQ135();
+  initMetalTouch(6); // define pin used by metaltouch module
 }
 void checkModules(){
   // series of checks
-  checkFlame();
+  //checkFlame();
+  //checkMQ135();
+  if(systemStatus == 0){
+	systemStatus = checkMetalTouch(6,7);
+  }
 }
 ////////////////////////////////////////////////////////
 void setup() {
