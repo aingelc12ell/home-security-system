@@ -24,7 +24,7 @@
 #include <MQUnifiedsensor.h>
 /************************Hardware Related Macros************************************/
 #define         Board                   ("Arduino UNO")
-#define         Pin                     (A2)  //Analog input 3 of your arduino
+#define         Pin                     (A0)  //Analog input 3 of your arduino
 /***********************Software Related Macros************************************/
 #define         Type                    ("MQ-2") //MQ2
 #define         Voltage_Resolution      (5)
@@ -69,7 +69,7 @@ void setup() {
   // Acknowledgements: https://jayconsystems.com/blog/understanding-a-gas-sensor
   Serial.print("Calibrating please wait.");
   float calcR0 = 0;
-  for(int i = 1; i<=10; i ++)
+  for(int i = 1; i<=20; i ++)
   {
     MQ2.update(); // Update data, the arduino will be read the voltage on the analog pin
     calcR0 += MQ2.calibrate(RatioMQ2CleanAir);
