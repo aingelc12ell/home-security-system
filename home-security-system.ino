@@ -1,198 +1,172 @@
+/**
+Implementation Option 5: Integrating all implementation options into one Home Security System
 
+Subcomponents:
+- Component51 - Independent Gas Sensor
+- Component52 - Kitchen Safety: Fire, Water, Temperature, Gas, 2.4Ghz
+- Component53 - Kitchen Safety: Gas Sensors, Relay Switch, 2.4Ghz
+- Component54 - Perimeter Security: Reed Switch, Magnetic Switches, Ultrasonic Sensor, Infrared Sensor
+- Component55 - I2C+2.4Ghz Relay: Relay Signals from Component54, Component56, Component57
+- Component56 - Living Space Security: Shock Sensors, Magnetic Switches, Relay Switch + I2C
+- Component57 - Living Space Safety: Infrared, Gas, Temperature, Humidity
+- Component58 - 
+- Component59 - Ethernet/Web Relay
+**/
+
+// include libraries
+#include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
-//#include <MQ135.h>
-#include <Wire.h>
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
 
+// setup system
+int systat = 0, setAlarm = LOW, intdata;
+int alarmCounter = 25; // cycles to delay checking
 
-int systemStatus = 0; // status to be reflected in the sequence
-int i2cID = 9; //slave address
-int buttonPin = 7;
-int signalInterval = 10;
-int signalIntervalDefault = 10;
+// pin registry
+const int buzzerPin = 6;
+const int greenLED = 4;
+const int redLED = 5;
 
-//LiquidCrystal_I2C lcd(0x22, 16, 2);
-//LiquidCrystal_I2C lcd2(0x26, 16, 2);
+// NRF
+RF24 RF24Rx(8, 9); // CE, CSN
+const byte address[6] = "AABBC";
+
+// i2c slave addresses
+#define i2cEthernet 40 //address of this component
+#include "./components/scenario5/modules/i2c.h"
+
+// Define LCD pinout
+const int  en = 2, rw = 1, rs = 0, d4 = 4, d5 = 5, d6 = 6, d7 = 7, bl = 3;
+const int i2c_addr = 0x26;
+LiquidCrystal_I2C lcd(i2c_addr, en, rw, rs, d4, d5, d6, d7, bl, POSITIVE);
 
 const char *lcdMessage[] = {
   "System Normal" //0
   ,"Fire Alarm" //1
-  ,"Air Quality Alarm" //2
+  ,"Air Quality Alarm" //2 //MQ135
   ,"Reed Switched" //3
   ,"Ultrasonic On" //4
   ,"Hall Magnetized" //5
   ,"Linear Hall" //6
   ,"Sensor Touched" //7
-  ,"Alarm # 8" //8
-  ,"Mercury Switched" //9
+  ,"High Temperature" //8
+  ,"Mercury Tilted" //9
   ,"Alarm # 10" //10
   ,"Alarm: Ultrasonic" //11
-  ,"Alarm: Laser Tripwire" //12
-  ,"Alarm: Reed Switch" // 13
-  ,"Alarm # 14" // 14
-  ,"Alarm # 15" //15
-  ,"Alarm" //16
+  ,"Alarm: Light Tripwire" //12
+  ,"Alarm: Analog Hall" // 13
+  ,"Humid Environment" // 14
+  ,"Gas Alarm MQ2" //15
+  ,"Gas Alarm MQ9" //16
+  ,"Gas Alarm MQ3" //17
+  ,"Gas Alarm MQ4" //18
+  ,"Movement via PIR" //19
+  ,"Shock @Loc1" //20
+  ,"Shock @Loc2" //21
+  ,"Shock @Loc3" //22
+  ,"Shock @Loc4" //23
 };
 
-void TCA9548A(uint8_t bus)
-{
-  Wire.beginTransmission(0x70);  // TCA9548A address is 0x70
-  Wire.write(1 << bus);          // send byte to select bus
-  Wire.endTransmission();
-}
-void initLCD(){
-	TCA9548A(0);
-  lcd.begin();
-  lcd.backlight();
-  TCA9548A(1);
-  lcd2.begin();
-  lcd2.backlight();
-}
-void showLCD(int i){
-	TCA9548A(0);
-  lcd.clear();
-  lcd.print(i);
-  lcd.setCursor (0,1);
-  lcd.print(lcdMessage[i]);
-  
-  TCA9548A(1);
-  lcd2.clear();
-  lcd2.print(i);
-  lcd2.setCursor (0,1);
-  lcd2.print(lcdMessage[i]);
-  
-  Serial.print(lcdMessage[i]);
-}
-/*
-ACTUATOR MODULES
- */
- #include "modules/led.h"
-#include "modules/buzzer2.h"
-//#include "modules/segmentLED.h"
-// #include "modules/relaySwitch.h"
-//#include "modules/ethernetRelay.h"
+// component registry
+#include "./components/scenario5/modules/buzzer2.h"
+#include "./components/scenario5/modules/led.h"
 
-const int redLED = 10;
-const int greenLED = 11;
-const int buzzer = 9;
-////////////////////////////////////////// alarm status
-void setAlarmOn(int x){
-	Serial.println("Alarm|Alarm|Alarm|Alarm|Alarm|Alarm");
-	doBuzzerOn(buzzer);
-  // relaySwitchOn();
-  //sendEthernetSignal(x);
-  
-}
-void setAlarmOff(){
-  Serial.println("Alarm Off");
-  doBuzzerOff(buzzer);
-  //relaySwitchOff();
-  //sendEthernetSignal(0);
-}
-
-void statusReceiver(int bytes){
-  if(systemStatus > 0){
-    Serial.println("system is on alarm");
-    setStatus(systemStatus);
-  }
-  else{
-    int x = Wire.read();    // read one character from the I2C
-    Serial.print("........................reading wire : ");
-    Serial.println(x);
-    systemStatus = x;
-    setStatus(x);
-  }
-  delay(100);
-}
-void initI2CSlave(){
-  Serial.println("I2CSlave Set");
-  Wire.begin(i2cID); 
-  Wire.onReceive(statusReceiver);
-}
-
+// alarm Protocol
 void initAlarm(){
 	initLED(redLED);
-	initLED(greenLED);
-  //initLCD();
-  //initCodeLights();
-  initBuzzer(buzzer);
-  //initI2CSlave();
-  //initRelaySwitch();
-  //initEthernetRelay();
-}
-void setStatus(int x){
-	//int i = x % 16;
-	Serial.print("at status: ");
-	Serial.println(x);
-	showLCD(x);
-	setLEDStatus(x);
-  if(x > 0){
-    setAlarmOn(x);
-    delay(1000);
-  }
+	
+	RF24Rx.begin();
+	RF24Rx.openReadingPipe(0, address);   //Setting the address at which we will receive the data
+	RF24Rx.setPALevel(RF24_PA_MIN);       //You can set this as minimum or maximum depending on the distance between the transmitter and receiver.
+	RF24Rx.startListening();              //This sets the module as receiver
+	
+	lcd.begin(16,2);
+	lcd.backlight();
+	
+	initBuzzer(buzzerPin);
+	delay(1000);
 }
 
-/**
-SENSOR MODULES: 
-	attached to the Arduino Mega
-	defined and configured on /modules/
-	requires an init<Module>() and check<Module>() 
-		to be included in the initModules() and checkModules() below
-*/
-//#include "modules/flame.h"
-//#include "modules/MQ135.h"
-#include "modules/metaltouch.h"
-////////////////////////////////////////////////////////
+void i2cRequest(){
+	Serial.print("Sending : ");
+	Serial.println(systat);
+	Wire.write(systat);
+}
+
+void doAlarm(){
+	if(setAlarm > 0){
+		Serial.println("ALARM!!!! ALARM!!!!");
+		doLED(redLED,HIGH);
+		doBuzzerOn(buzzerPin);
+		
+		lcd.setCursor(0,1);
+		lcd.print("ALARM!!! alarm!!!");
+		delay(500);
+	}
+	else{
+		doLED(redLED,LOW);
+	}
+}
+
+// modules
 void initModules(){
-  // initialize modules here
-  //initFlame();
-  //initMQ135();
-  initMetalTouch(6); // define pin used by metaltouch module
+	initLED(greenLED);
 }
 void checkModules(){
-  // series of checks
-  //checkFlame();
-  //checkMQ135();
-  if(systemStatus == 0){
-	systemStatus = checkMetalTouch(6,7);
-  }
+	
+	//fetch signals from NRF
+	if (RF24Rx.available())              //Looking for the data.
+	{
+        //Saving the incoming data
+		RF24Rx.read(&intdata, sizeof(intdata));    //Reading the data
+		Serial.print("Received data: ");
+		Serial.println(intdata);
+		int systat = intdata;
+		
+		lcd.clear();
+		lcd.setCursor(0,0);
+		lcd.print(lcdMessage[systat]);
+		
+		if(systat > 0){
+			setAlarm = HIGH;
+		}else{
+			setAlarm = LOW;
+		}
+	}
+	 else{
+		lcd.clear();
+		lcd.setCursor(0,0);
+		lcd.print(lcdMessage[0]);
+		Serial.println("Awaiting Data");
+		setAlarm = LOW;
+	 }
 }
-////////////////////////////////////////////////////////
-void setup() {
-  Serial.begin(9600);  
-  initAlarm();
-  initModules();
+////////////////////////////////////////////////////
+// main functions
+void setup(){
+	Serial.begin(9600);
+	
+	Wire.begin(i2cEthernet); 
+	Wire.onRequest(i2cRequest);
+	
+	initAlarm();
+	initModules();
 }
-
-void loop() {
-    delay(1000);
-    if(systemStatus > 0 && digitalRead(buttonPin) == HIGH){
-        // can only reset if had already been running in signalInterval iteration
-        Serial.println("button is High, resetting..");
-        systemStatus = 0;
-        setStatus(systemStatus);
-        setAlarmOff();
-        statusReceiver(0);
-        signalInterval = signalIntervalDefault;
-    }
-    
-    // SYSTEM STATUS TEST
-    /*systemStatus = systemStatus % 16;
-    if(systemStatus < 15){
-      setStatus(systemStatus);
-      systemStatus++;
-    }*/
-    
-    // main checker
-    checkModules();
-	  systemStatus = systemStatus < 1 ? 0 : systemStatus;
-    Serial.print("systemStatus: ");
-    Serial.println(systemStatus);
-    
-    setStatus(systemStatus);
-    
-    // counter
-    signalInterval--;
-    signalInterval = signalInterval < 0 ? 0 : signalInterval;
-    Serial.print("Interval: ");
-    Serial.println(signalInterval);
+void loop(){
+	doLED(greenLED,HIGH);
+	if(alarmCounter > 0){
+		delay(1000);
+		Serial.print("delaying ");
+		Serial.println(alarmCounter);
+		alarmCounter--; // give time for system to warm up if needed
+	}else{
+		Serial.println("checking modules");
+		checkModules();
+		delay(500);
+	}
+	doAlarm();
+	doLED(greenLED,LOW);
+	delay(500);
 }

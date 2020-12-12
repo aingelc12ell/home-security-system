@@ -5,7 +5,7 @@
 MQUnifiedsensor MQ2("Arduino UNO", 5, 10, MQ2pin, "MQ-2");
 #define         RatioMQ2CleanAir        (9.83) //RS / R0 = 9.83 ppm 
 
-void calibrateMQ2(){
+void calibrateMQ2(int cycles){
 	/*****************************  MQ CAlibration ********************************************/ 
   // Explanation: 
   // In this routine the sensor will measure the resistance of the sensor supposing before was pre-heated
@@ -15,15 +15,15 @@ void calibrateMQ2(){
   // Acknowledgements: https://jayconsystems.com/blog/understanding-a-gas-sensor
   //Serial.print("Calibrating please wait.");
   float calcR0 = 0;
-  for(int i = 1; i<=20; i ++)
+  for(int i = 1; i<=cycles; i ++)
   {
     MQ2.update(); // Update data, the arduino will be read the voltage on the analog pin
     calcR0 += MQ2.calibrate(RatioMQ2CleanAir);
     //Serial.print(".");
   }
-  MQ2.setR0(calcR0/10);
+  MQ2.setR0(calcR0/cycles);
   Serial.print("R0 : ");
-  Serial.println(calcR0/10);
+  Serial.println(calcR0/cycles);
   
   if(isinf(calcR0)) {Serial.println("Warning: Conection issue founded, R0 is infite (Open circuit detected) please check your wiring and supply"); while(1);}
   if(calcR0 == 0){Serial.println("Warning: Conection issue founded, R0 is zero (Analog pin with short circuit to ground) please check your wiring and supply"); while(1);}
@@ -54,7 +54,7 @@ void initMQ2() {
   */
   
   //MQ2.setR0(mq2R0);
-  calibrateMQ2();
+  calibrateMQ2(20);
   Serial.println("|    CO   |  LPG |   Prop  |");  
 }
 
